@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "MFS API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {"name": "Register","request": {"method": "POST","url": {"raw": "{{base_url}}/api/auth/register"},"body": {"mode": "raw","raw": "{\n  \"phone\": \"017xxxxxxxx\",\n  \"password\": \"secret\"\n}"}}},
+        {"name": "Verify OTP","request": {"method": "POST","url": {"raw": "{{base_url}}/api/auth/verify-otp"},"body": {"mode": "raw","raw": "{\n  \"phone\": \"017xxxxxxxx\",\n  \"otp\": \"123456\"\n}"}}},
+        {"name": "Resend OTP","request": {"method": "POST","url": {"raw": "{{base_url}}/api/auth/resend-otp"},"body": {"mode": "raw","raw": "{\n  \"phone\": \"017xxxxxxxx\"\n}"}}},
+        {"name": "Set PIN","request": {"method": "POST","url": {"raw": "{{base_url}}/api/auth/set-pin"},"body": {"mode": "raw","raw": "{\n  \"pin\": \"1234\"\n}"}}},
+        {"name": "Login","request": {"method": "POST","url": {"raw": "{{base_url}}/api/auth/login"},"body": {"mode": "raw","raw": "{\n  \"phone\": \"017xxxxxxxx\",\n  \"password\": \"secret\"\n}"}}},
+        {"name": "Logout","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/auth/logout"}}},
+        {"name": "Dashboard","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/auth/dashboard"}}}
+      ]
+    },
+    {
+      "name": "PIN Reset",
+      "item": [
+        {"name": "Reset","request": {"method": "POST","url": {"raw": "{{base_url}}/api/pin/reset"},"body": {"mode": "raw","raw": "{\n  \"phone\": \"017xxxxxxxx\"\n}"}}},
+        {"name": "Resend OTP","request": {"method": "POST","url": {"raw": "{{base_url}}/api/pin/resend-otp"},"body": {"mode": "raw","raw": "{\n  \"phone\": \"017xxxxxxxx\"\n}"}}},
+        {"name": "Verify OTP","request": {"method": "POST","url": {"raw": "{{base_url}}/api/pin/verify-otp"},"body": {"mode": "raw","raw": "{\n  \"otp\": \"123456\"\n}"}}},
+        {"name": "New PIN","request": {"method": "POST","url": {"raw": "{{base_url}}/api/pin/new-pin"},"body": {"mode": "raw","raw": "{\n  \"pin\": \"1234\"\n}"}}}
+      ]
+    },
+    {
+      "name": "Wallet",
+      "item": [
+        {"name": "Balance","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/wallet/balance"}}},
+        {"name": "Statement","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/wallet/statement"}}}
+      ]
+    },
+    {
+      "name": "Transaction",
+      "item": [
+        {"name": "Send","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/transaction/send"},"body": {"mode": "raw","raw": "{\n  \"to_user_phone\": \"017xxxxxxxx\",\n  \"amount\": 100\n}"}}},
+        {"name": "Cash Out","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/transaction/cash-out"},"body": {"mode": "raw","raw": "{\n  \"amount\": 50\n}"}}}
+      ]
+    },
+    {
+      "name": "KYC",
+      "item": [
+        {"name": "Upload","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/kyc/upload"},"body": {"mode": "raw","raw": "{\n  \"document_type\": \"nid\",\n  \"document_number\": \"123456\",\n  \"document_front_image\": \"base64\",\n  \"document_back_image\": \"base64\"\n}"}}},
+        {"name": "Status","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/kyc/status"}}}
+      ]
+    },
+    {
+      "name": "Agent",
+      "item": [
+        {"name": "Cash In","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/agent/cash-in"},"body": {"mode": "raw","raw": "{\n  \"user_phone\": \"017xxxxxxxx\",\n  \"amount\": 100\n}"}}},
+        {"name": "Dashboard","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/agent/dashboard"}}}
+      ]
+    },
+    {
+      "name": "Merchant",
+      "item": [
+        {"name": "Receive Payment","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/merchant/receive-payment"},"body": {"mode": "raw","raw": "{\n  \"amount\": 500\n}"}}},
+        {"name": "Create App","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/merchant/create-app"},"body": {"mode": "raw","raw": "{\n  \"app_name\": \"My App\"\n}"}}},
+        {"name": "Get App","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/merchant/get-app"}}},
+        {"name": "Dashboard","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/merchant/dashboard"}}}
+      ]
+    },
+    {
+      "name": "Payment",
+      "item": [
+        {"name": "Create Token","request": {"method": "POST","url": {"raw": "{{base_url}}/api/payment/token"},"body": {"mode": "raw","raw": "{\n  \"merchant_id\": \"abc123\",\n  \"amount\": 200\n}"}}},
+        {"name": "Create Payment","request": {"method": "POST","url": {"raw": "{{base_url}}/api/payment/create"},"body": {"mode": "raw","raw": "{\n  \"token\": \"tok_abc123\"\n}"}}},
+        {"name": "Proceed Payment","request": {"method": "POST","url": {"raw": "{{base_url}}/api/payment/proceed"},"body": {"mode": "raw","raw": "{\n  \"payment_id\": \"pay_123\"\n}"}}},
+        {"name": "Verify OTP","request": {"method": "POST","url": {"raw": "{{base_url}}/api/payment/otp/1/verify"},"body": {"mode": "raw","raw": "{\n  \"otp\": \"123456\"\n}"}}},
+        {"name": "Verify PIN","request": {"method": "POST","url": {"raw": "{{base_url}}/api/payment/pin/1/verify"},"body": {"mode": "raw","raw": "{\n  \"pin\": \"1234\"\n}"}}}
+      ]
+    },
+    {
+      "name": "SMS Methods",
+      "item": [
+        {"name": "List Methods","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods"}}},
+        {"name": "Create","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods/create"},"body": {"mode": "raw","raw": "{\n  \"name\": \"Provider1\",\n  \"config\": \"...\"\n}"}}},
+        {"name": "Update","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods/update"},"body": {"mode": "raw","raw": "{\n  \"id\": 1,\n  \"name\": \"Updated Provider\"\n}"}}},
+        {"name": "Delete","request": {"method": "DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods/delete/1"}}},
+        {"name": "Open","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods/open/1"}}},
+        {"name": "Set Active","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods/set"},"body": {"mode": "raw","raw": "{\n  \"id\": 1\n}"}}},
+        {"name": "Get Active","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/sms-methods/active"}}}
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {"name": "Pending KYC","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/admin/kyc"}}},
+        {"name": "Approve KYC","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/admin/kyc/1/approve"}}},
+        {"name": "Reject KYC","request": {"method": "POST","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/admin/kyc/1/reject"}}},
+        {"name": "Dashboard","request": {"method": "GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url": {"raw": "{{base_url}}/api/admin"}}}
+      ]
+    }
+  ]
+}
