@@ -27,7 +27,6 @@ Route::prefix('v1')->group(function () {
         Route::post('refresh-token', 'refresh');
         Route::get('check', 'checkAuthUser')->middleware('auth.jwt');
         Route::post('logout', 'signout')->middleware('auth.jwt');
-
     });
 
     // universal routes
@@ -59,6 +58,7 @@ Route::prefix('v1')->group(function () {
         Route::post('send', 'send');
         Route::get('summery', 'summery');
         Route::post('cash-out', 'cashOut');
+        Route::post('payment', 'onlinePayment');
     });
 
     // kyc routes
@@ -109,6 +109,5 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', [AdminController::class, 'dashboard']);
     });
 });
-
 
 Route::post('/nid/upload', [NidController::class, 'upload']);

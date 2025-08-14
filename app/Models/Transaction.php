@@ -14,11 +14,20 @@ class Transaction extends Model
         'type',
         'status',
         'txn_id',
-        'otp'
+        'otp',
+        'reference',
+        'charge_amount',
+        'interest',
     ];
 
     protected $hidden = [
-        'otp'
+        'otp',
+    ];
+
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'charge_amount' => 'decimal:2',
+        'interest' => 'decimal:2',
     ];
 
     public function fromUser()

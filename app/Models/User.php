@@ -63,4 +63,14 @@ class User extends Authenticatable
     {
         return $this->hasOne(Kyc::class);
     }
+
+    public function transactionCharge()
+    {
+        return $this->hasMany(TransactionCharge::class);
+    }
+
+    public function transactionLimit()
+    {
+        return $this->hasOne(TransactionLimit::class);
+    }
 }
