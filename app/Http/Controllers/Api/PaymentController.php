@@ -307,11 +307,15 @@ class PaymentController extends Controller
             // committed database
             DB::commit();
 
+            $date = Carbon::parse($transaction->created_at, 'UTC') // assume stored as UTC
+                ->setTimezone('Asia/Dhaka')
+                ->format('Y/m/d h:i:s A');
+
             // merchant confirmation sms
-            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} TxnID:{$transaction->txn_id}. You new balance is Tk{$merchant->wallet->balance}","Received Payment Tk{$transaction->amount}",$merchant->phone,null,$merchant->name);
+            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$merchant->wallet->balance}","Received Payment Tk{$transaction->amount}",$merchant->phone,null,$merchant->name);
 
             // user confirmation sms
-            $this->smsInit("Your payment has been completed to {$merchant->name} Tk{$transaction->amount} Mobile {$merchant->phone} TxnID:{$transaction->txn_id}. You new balance is Tk{$user->wallet->balance}","You have paid Tk{$transaction->amount}",$user->phone,null,$user->name);
+            $this->smsInit("Your payment has been completed to {$merchant->phone} Tk{$transaction->amount} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$user->wallet->balance}","You have paid Tk{$transaction->amount}",$user->phone,null,$user->name);
 
             return response()->json([
                 'code'    => "PAYMENT_COMPLETED",

@@ -48,15 +48,20 @@ Route::prefix('v1')->group(function () {
     });
 
     // wallet routes
-    Route::middleware('auth.jwt')->prefix('wallet')->controller(WalletController::class)->group(function () {
-        Route::get('balance', 'balance');
-        Route::get('statement', 'statement');
+    Route::middleware('auth.jwt')->prefix('wallet')->group(function () {
+        Route::controller(WalletController::class)->group(function(){
+            Route::get('balance', 'balance');
+            Route::get('statement', 'statement');
+        });
+
+        Route::controller(TransactionController::class)->group(function(){
+            Route::get('summery', 'summery');
+        });
     });
 
     // transfer routes
     Route::middleware('auth.user')->prefix('transaction')->controller(TransactionController::class)->group(function () {
         Route::post('send', 'send');
-        Route::get('summery', 'summery');
         Route::post('cash-out', 'cashOut');
         Route::post('payment', 'onlinePayment');
     });

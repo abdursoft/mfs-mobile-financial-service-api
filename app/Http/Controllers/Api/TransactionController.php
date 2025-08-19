@@ -159,15 +159,19 @@ class TransactionController extends Controller
 
             DB::commit();
 
+            $date = Carbon::parse($transaction->created_at, 'UTC') // assume stored as UTC
+                ->setTimezone('Asia/Dhaka')
+                ->format('Y/m/d h:i:s A');
+
             // masking phone numbers for privacy
             $userMask = maskPhone($toUser->phone);
             $senderMask = maskPhone($fromUser->phone);
 
             // Notify users via SMS
-            $this->smsInit("You have received Tk{$request->amount} from {$senderMask} TxID:{$transaction->txn_id} Your new balance is Tk{$toUser->wallet->balance}. Thanks for using {$app}.", "Received money {$request->amount} ", $toUser->phone, null, $toUser->name);
+            $this->smsInit("You have received Tk{$request->amount} from {$senderMask} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$toUser->wallet->balance}. Thanks for using {$app}.", "Received money {$request->amount} ", $toUser->phone, null, $toUser->name);
 
             // Notify sender via SMS
-            $this->smsInit("You have sent Tk{$request->amount} to {$userMask} TxID:{$transaction->txn_id} Your new balance is Tk{$fromUser->wallet->balance}. Thanks for using {$app}.", "Send money {$request->amount} ", $fromUser->phone, null, $fromUser->name);
+            $this->smsInit("You have sent Tk{$request->amount} to {$userMask} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$fromUser->wallet->balance}. Thanks for using {$app}.", "Send money {$request->amount} ", $fromUser->phone, null, $fromUser->name);
 
             // Return success response
             return response()->json([
@@ -321,6 +325,10 @@ class TransactionController extends Controller
             ]);
             DB::commit();
 
+            $date = Carbon::parse($transaction->created_at, 'UTC') // assume stored as UTC
+                ->setTimezone('Asia/Dhaka')
+                ->format('Y/m/d h:i:s A');
+
             // masking phone numbers for privacy
             $userMask = maskPhone($toUser->phone);
             $agentMask = maskPhone($agent->phone);
@@ -331,10 +339,10 @@ class TransactionController extends Controller
 
 
             // user message
-            $this->smsInit("You have successfully cashed out Tk{$amount} to {$agentMask} Fee Tk{$chargeAmount} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Cash-out {$amount} ", $user->phone, null, $user->name);
+            $this->smsInit("You have successfully cash out Tk{$amount} to {$agentMask} Fee Tk{$chargeAmount} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Cash-out {$amount} ", $user->phone, null, $user->name);
 
             // agent message
-            $this->smsInit("Cashed out credited Tk{$amount} from {$user->phone} successful interest Fee Tk{$interest} TxID:{$transaction->txn_id} Your new balance is Tk{$agent->wallet->balance}", "Cash-out {$amount} ", $agent->phone, null, $agent->name);
+            $this->smsInit("Cash out credited Tk{$amount} from {$user->phone} successful interest Fee Tk{$interest} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$agent->wallet->balance}", "Cash-out {$amount} ", $agent->phone, null, $agent->name);
 
             return response()->json([
                 'code'    => 'CASH_OUT',
@@ -484,6 +492,10 @@ class TransactionController extends Controller
             ]);
             DB::commit();
 
+            $date = Carbon::parse($transaction->created_at, 'UTC') // assume stored as UTC
+                ->setTimezone('Asia/Dhaka')
+                ->format('Y/m/d h:i:s A');
+
             // masking phone numbers for privacy
             $userMask = maskPhone($toUser->phone);
             $agentMask = maskPhone($merchant->phone);
@@ -496,10 +508,10 @@ class TransactionController extends Controller
 
 
             // user message
-            $this->smsInit("You have paid Tk{$amount} to {$agentMask} Fee Tk{$chargeAmount} Ref:{$ref} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Paid {$amount} ", $user->phone, null, $user->name);
+            $this->smsInit("You have paid Tk{$amount} to {$agentMask} Fee Tk{$chargeAmount} Ref:{$ref} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Paid {$amount} ", $user->phone, null, $user->name);
 
             // merchant message
-            $this->smsInit("Payment received Tk{$amount} from {$userMask} successful Ref:{$ref} TxID:{$transaction->txn_id} Your new balance is Tk{$merchant->wallet->balance}", "Received payment {$amount} ", $merchant->phone, null, $merchant->name);
+            $this->smsInit("Payment received Tk{$amount} from {$userMask} successful Ref:{$ref} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$merchant->wallet->balance}", "Received payment {$amount} ", $merchant->phone, null, $merchant->name);
 
             return response()->json([
                 'code'    => 'PAYMENT',
@@ -563,8 +575,8 @@ class TransactionController extends Controller
             ->whereYear('created_at', Carbon::now()->year)
             ->where('status', 'completed')->sum('amount');
 
-        $merchantPayment = Transaction::where('from_user_id', $user->id)
-            ->where('type', 'cash_out')
+        $merchantPayment = Transaction::where('to_user_id', $user->id)
+            ->where('type', 'transfer')
             ->whereMonth('created_at', Carbon::now()->month)
             ->whereYear('created_at', Carbon::now()->year)
             ->where('status', 'completed')->sum('amount');
