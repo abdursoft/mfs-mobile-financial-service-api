@@ -82,7 +82,8 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth.merchant')->prefix('merchant')->group(function () {
         Route::post('receive-payment', [MerchantController::class, 'receivePayment']);
         Route::post('create-app', [MerchantCredentialController::class, 'store']);
-        Route::post('get-app', [MerchantCredentialController::class, 'merchantShow']);
+        Route::get('get-app', [MerchantCredentialController::class, 'merchantShow']);
+        Route::post('delete-app/{id}', [MerchantCredentialController::class, 'destroy']);
         Route::get('dashboard', [MerchantController::class, 'dashboard']);
     });
 
@@ -90,6 +91,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('payment')->group(function () {
         Route::post('token', [PaymentController::class, 'createToken']);
         Route::post('create', [PaymentController::class, 'createPayment'])->middleware(PaymentMiddleware::class);
+        Route::get('merchant/{id}', [PaymentController::class, 'merchantByPayment']);
         Route::post('proceed/{id}', [PaymentController::class, 'proceedPayment']);
         Route::post('otp/verify/{id}', [PaymentController::class, 'checkOTP']);
         Route::post('pin/verify/{id}', [PaymentController::class, 'checkPIN']);

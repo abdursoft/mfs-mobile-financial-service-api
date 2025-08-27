@@ -73,4 +73,8 @@ class User extends Authenticatable
     {
         return $this->hasOne(TransactionLimit::class);
     }
+
+    public function merchantCredentials(){
+        return $this->hasMany(MerchantCredential::class);
+    }
 }

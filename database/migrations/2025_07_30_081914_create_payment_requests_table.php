@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('payment_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('merchant_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('merchant_app_id')->constrained('merchant_credentials')->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->string('reference')->nullable();
             $table->decimal('amount', 12, 2);

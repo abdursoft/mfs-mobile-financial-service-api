@@ -22,7 +22,7 @@ class PaymentMiddleware
 
         try {
             $decoded = JWTAuth::verifyToken($token, false);
-            $merchant = MerchantCredential::where('user_id',$decoded->id)->first();
+            $merchant = MerchantCredential::where('id',$decoded->id)->first();
 
             // check revoked or expired
             if (!$merchant) {
@@ -38,7 +38,7 @@ class PaymentMiddleware
                     'message' => 'Unauthorized access!'
                 ],401);
             }
-            $request->attributes->set('merchant', $merchant); // set auth_user on request
+            $request->attributes->set('merchantApp', $merchant); // set auth_user on request
             return $next($request);
         } catch (\Exception $e) {
             return response()->json([

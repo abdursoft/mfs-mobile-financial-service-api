@@ -39,7 +39,7 @@ class PaymentController extends Controller
             $merchant = MerchantCredential::where('public_key', $public_key)
                 ->where('app_name', $app_name)->first();
 
-            $token = JWTAuth::paymentToken('paymentToken', 0.17, $merchant->user_id);
+            $token = JWTAuth::paymentToken('paymentToken', 0.17, $merchant->id);
             return response([
                 'code'       => 'PAYMENT_TOKEN',
                 'message'    => 'Payment token created successful',
@@ -75,20 +75,29 @@ class PaymentController extends Controller
         }
 
         try {
-            $merchant = $request->attributes->get('merchant');
+            $merchant = $request->attributes->get('merchantApp');
 
             // create transaction form data
-            $form                = $validate->validated();
-            $form['txn_id']      = txnID(\App\Models\PaymentRequest::class, 'txn_id');
-            $form['status']      = 'pending';
-            $form['merchant_id'] = $merchant->user_id;
-            $from['expire_at']   = Carbon::now()->addHour(24);
+            $form                    = $validate->validated();
+            $form['txn_id']          = txnID(\App\Models\PaymentRequest::class, 'txn_id');
+            $form['status']          = 'pending';
+            $form['merchant_app_id'] = $merchant->id;
+            $from['expire_at']       = Carbon::now()->addHour(24);
 
             $payment = PaymentRequest::create($form);
             return response()->json([
-                'code'         => 'Payment created successful',
-                'message'      => 'Redirect to the below link to make payment done',
-                'payment_link' => $request->root() . "/payment/make/{$payment->txn_id}",
+                'code'    => 'Payment created successful',
+                'message' => 'Redirect to the below link to make payment done',
+                'payment' => [
+                    'payment_id'   => $payment->txn_id,
+                    'merchant_id'  => $payment->mr_txn_id,
+                    'status'       => $payment->status,
+                    'amount'       => $payment->amount,
+                    'currency'     => $payment->currency ?? 'BDT',
+                    'reference'    => $payment->reference,
+                    'created_at'   => $payment->created_at,
+                    'payment_link' => ($merchant->app_type == 'development' ? env('DEMO_PAYMENT') : env('LIVE_PAYMENT')) . "?paymentID={$payment->txn_id}&mrID={$payment->mr_txn_id}",
+                ],
             ]);
         } catch (\Throwable $th) {
             return response()->json([
@@ -97,6 +106,42 @@ class PaymentController extends Controller
                 'error '  => $th->getMessage(),
             ], 422);
         }
+    }
+
+    // get merchant by payment id
+    public function merchantByPayment($id)
+    {
+        // check payment id
+        $payment = PaymentRequest::findOrFail($id);
+
+        // check is available
+        if (empty($payment)) {
+            return response()->json([
+                'code'    => 'INVALID_PAYMENT_REQUEST_ID',
+                'message' => 'Invalid payment request',
+            ], 404);
+        }
+
+        // check payment is payable 
+        if($payment->status !== 'pending'){
+            return response()->json([
+                'code'    => 'PAYMENT_IS_NOT_GRANTED',
+                'message' => 'Payment request is not granted',
+            ], 400);
+        }
+
+        $app = $payment->merchantApp;
+
+        return response()->json([
+            'code'     => 'MERCHANT_RETRIEVED',
+            'message'  => 'Merchant retrieved successfully',
+            'merchant' => [
+                'app_name' => $app->app_name,
+                'app_logo' => $app->app_logo,
+                'amount'   => $payment->amount,
+                'currency' => $payment->currency,
+            ],
+        ], 200);
     }
 
     // proceed payment
@@ -134,14 +179,14 @@ class PaymentController extends Controller
         }
 
         // check payment request
-        $payment  = PaymentRequest::where('txn_id', $id)->first();
+        $payment = PaymentRequest::where('txn_id', $id)->first();
 
         // check payment request status
-        if($payment->status !== 'pending'){
+        if ($payment->status !== 'pending') {
             return response()->json([
-                'code' => 'PAYMENT_DECLINED',
-                'message' => 'Your payment has been declined'
-            ],422);
+                'code'    => 'PAYMENT_DECLINED',
+                'message' => 'Your payment has been declined',
+            ], 422);
         }
 
         try {
@@ -191,9 +236,8 @@ class PaymentController extends Controller
 
         $transaction = Transaction::where('txn_id', $id)->first();
 
-
         // check transaction
-        if (!$transaction) {
+        if (! $transaction) {
             return response()->json([
                 'code'    => "INVALID_TRANSACTION_ID",
                 'message' => 'Please use a valid transaction ID.',
@@ -240,7 +284,7 @@ class PaymentController extends Controller
         $transaction = Transaction::where('txn_id', $id)->first();
 
         // check transaction
-        if (!$transaction) {
+        if (! $transaction) {
             return response()->json([
                 'code'    => "INVALID_TRANSACTION_ID",
                 'message' => 'Please use a valid transaction ID.',
@@ -265,22 +309,22 @@ class PaymentController extends Controller
 
         // define user and merchant
         $merchant = $transaction->toUser;
-        $user = $transaction->fromUser;
-        $payment = $transaction->payment;
+        $user     = $transaction->fromUser;
+        $payment  = $transaction->payment;
 
         // check wallet pin
-        if (!Hash::check($request->pin, $user->pin)) {
+        if (! Hash::check($request->pin, $user->pin)) {
             return response()->json([
-                'code' => 'INVALID_WALLET_PIN',
-                'message' => 'Please enter your correct PIN'
+                'code'    => 'INVALID_WALLET_PIN',
+                'message' => 'Please enter your correct PIN',
             ], 422);
         }
 
         // check balance
         if ($transaction->amount > $user->wallet->balance) {
             return response()->json([
-                'code' => 'INSUFFICIENT_BALANCE',
-                'message' => 'You don\'t have sufficient balance to make this payment completed'
+                'code'    => 'INSUFFICIENT_BALANCE',
+                'message' => 'You don\'t have sufficient balance to make this payment completed',
             ], 422);
         }
 
@@ -312,10 +356,10 @@ class PaymentController extends Controller
                 ->format('Y/m/d h:i:s A');
 
             // merchant confirmation sms
-            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$merchant->wallet->balance}","Received Payment Tk{$transaction->amount}",$merchant->phone,null,$merchant->name);
+            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$merchant->wallet->balance}", "Received Payment Tk{$transaction->amount}", $merchant->phone, null, $merchant->name);
 
             // user confirmation sms
-            $this->smsInit("Your payment has been completed to {$merchant->phone} Tk{$transaction->amount} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$user->wallet->balance}","You have paid Tk{$transaction->amount}",$user->phone,null,$user->name);
+            $this->smsInit("Your payment has been completed to {$merchant->phone} Tk{$transaction->amount} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$user->wallet->balance}", "You have paid Tk{$transaction->amount}", $user->phone, null, $user->name);
 
             return response()->json([
                 'code'    => "PAYMENT_COMPLETED",
@@ -326,7 +370,7 @@ class PaymentController extends Controller
             return response()->json([
                 'code'    => "PAYMENT_FAILED",
                 'message' => 'Your payment has been failed!',
-                'errors' => $th->getMessage()
+                'errors'  => $th->getMessage(),
             ], 400);
         }
     }

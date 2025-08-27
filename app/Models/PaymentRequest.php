@@ -10,22 +10,22 @@ class PaymentRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'merchant_id',
         'user_id',
         'txn_id',
         'mr_txn_id',
         'reference',
         'amount',
         'status',
-        'expire_at'
+        'expire_at',
+        'merchant_app_id',
     ];
 
     /**
      * The merchant that owns the payment request.
      */
-    public function merchant()
+    public function merchantApp()
     {
-        return $this->belongsTo(User::class, 'merchant_id');
+        return $this->belongsTo(MerchantCredential::class, 'merchant_app_id');
     }
 
     /**

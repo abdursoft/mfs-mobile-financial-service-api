@@ -24,19 +24,11 @@ class MerchantCredentialController extends Controller
      */
     public function store(Request $request)
     {
-        $validate = Validator::make($request->all(), [
+        $validated = $request->validate([
             'app_name' => 'required|string|unique:merchant_credentials,app_name',
             'app_logo' => 'required|string',
-            'app_type' => 'required|in:production,development',
+            'app_type' => 'required|in:production,development'
         ]);
-
-        if ($validate->fails()) {
-            return response()->json([
-                'code'    => 'INVALID_DATA',
-                'message' => 'Request data are invalid',
-                'errors'  => $validate->errors(),
-            ], 400);
-        }
 
         $user = authUser($request);
 
@@ -44,14 +36,11 @@ class MerchantCredentialController extends Controller
         if(!$user->kyc || $user->kyc->status !== 'approved'){
             return response()->json([
                 'code'    => 'KYC_NOT_VERIFIED',
-                'message' => 'Please update your KYC to create you app'
+                'message' => 'Please update your KYC to create your app'
             ], 400);
         }
 
         try {
-
-
-            $validated = $validate->validated();
 
             $validated['user_id']     = $user->id;
             $validated['secret_key']  = "sk" . generate_unique_token(\App\Models\MerchantCredential::class, 'secret_key', $request->app_type);
