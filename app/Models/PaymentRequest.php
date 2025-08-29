@@ -17,6 +17,8 @@ class PaymentRequest extends Model
         'amount',
         'status',
         'expire_at',
+        'cancel_url',
+        'success_url',
         'merchant_app_id',
     ];
 
@@ -37,6 +39,6 @@ class PaymentRequest extends Model
     }
 
     public function transaction(){
-        return $this->hasMany(Transaction::class);
+        return $this->hasOne(Transaction::class,'payment_id');
     }
 }

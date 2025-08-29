@@ -33,7 +33,7 @@ if (!function_exists('txnID')) {
 // generate random otp
 if(!function_exists('otp')){
     function otp(){
-        return rand(1000,9999);
+        return rand(1000,999999);
     }
 }
 
@@ -41,5 +41,12 @@ if(!function_exists('otp')){
 if(!function_exists('maskPhone')){
     function maskPhone($phone){
         return substr($phone, 0, 3) . '****' . substr($phone, -4);
+    }
+}
+
+// formatting phone number
+if(!function_exists('format_phone')){
+    function format_phone($phone){
+        return substr($phone,0,5).'-'.substr($phone,5);
     }
 }

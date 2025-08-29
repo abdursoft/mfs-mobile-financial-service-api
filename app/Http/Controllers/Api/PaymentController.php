@@ -7,6 +7,7 @@ use App\Http\Controllers\Essentials\JWTAuth;
 use App\Models\MerchantCredential;
 use App\Models\PaymentRequest;
 use App\Models\Transaction;
+use App\Models\TransactionCharge;
 use App\Models\User;
 use App\Traits\MessageHandler;
 use Carbon\Carbon;
@@ -51,6 +52,7 @@ class PaymentController extends Controller
             return response()->json([
                 'code'    => "INVALID_DATA",
                 'message' => 'Invalid payment data, Please have a look our API docs.',
+                'error'   => $th->getMessage()
             ], 422);
         }
     }
@@ -112,7 +114,7 @@ class PaymentController extends Controller
     public function merchantByPayment($id)
     {
         // check payment id
-        $payment = PaymentRequest::findOrFail($id);
+        $payment = PaymentRequest::where('txn_id',$id)->first();
 
         // check is available
         if (empty($payment)) {
@@ -122,7 +124,7 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        // check payment is payable 
+        // check payment is payable
         if($payment->status !== 'pending'){
             return response()->json([
                 'code'    => 'PAYMENT_IS_NOT_GRANTED',
@@ -147,23 +149,17 @@ class PaymentController extends Controller
     // proceed payment
     public function proceedPayment($id, Request $request)
     {
-        $validate = Validator::make($request->all(), [
-            'phone' => 'required|exists:users,phone',
-        ]);
 
-        // check validation
-        if ($validate->fails()) {
+        $user = User::where('phone', format_phone($request->phone))->first();
+        if(empty($user)){
             return response()->json([
-                'code'    => "INVALID_DATA",
-                'message' => 'Invalid payment data, Please have a look our API docs.',
-                'errors'  => $validate->errors(),
+                'code'    => "WRONG_USER",
+                'message' => 'Invalid wallet number'
             ], 422);
         }
 
-        $user = User::where('phone', $request->phone)->first();
-
         // check user and role
-        if (! $user || $user->role !== 'user') {
+        if ($user->role !== 'user') {
             return response()->json([
                 'code'    => "WRONG_USER",
                 'message' => 'You are not allowed to proceed this payment',
@@ -189,8 +185,16 @@ class PaymentController extends Controller
             ], 422);
         }
 
+        // check payment id in transaction table
+        if(!empty($payment->transaction)){
+            return response()->json([
+                'code'    => 'PAYMENT_DECLINED',
+                'message' => 'Your payment has been declined for duplicate request ID',
+            ], 422);
+        }
+
         try {
-            $merchant = $payment->merchant;
+            $merchant = $payment->merchantApp->user;
 
             $code = otp();
 
@@ -207,7 +211,7 @@ class PaymentController extends Controller
             ]);
 
             // send OTP
-            $this->smsInit("Payment verification OTP {$code}. Don't share your PIN and OTP with anyone.", 'Payment OTP', $user->phone, null, $user->name);
+            $this->smsInit("Payment verify OTP {$code}. Don't share your PIN and OTP with anyone.", 'Payment OTP', $user->phone, null, $user->name);
 
             return response()->json([
                 'code'    => 'Payment created successful',
@@ -230,7 +234,7 @@ class PaymentController extends Controller
         if (! $request->otp) {
             return response()->json([
                 'code'    => "INVALID_OTP",
-                'message' => 'Please enter 4 digits OTP from your phone.',
+                'message' => 'Please enter 6 digits OTP from your phone.',
             ], 422);
         }
 
@@ -328,6 +332,50 @@ class PaymentController extends Controller
             ], 422);
         }
 
+
+        $charge = TransactionCharge::where('user_id',$user->id)->first();
+
+        // check amount charge
+        $amount = $transaction->amount;
+        $chargeAmount = ($amount * $charge->payment_percentage / 100);
+        $amount += $chargeAmount;
+
+        // check daily and monthly limits
+        $dailyLimit = $user->transactionLimit->daily_payment_limit;
+        $monthlyLimit = $user->transactionLimit->monthly_payment_limit;
+        $dailyTotal = Transaction::where('from_user_id', $user->id)
+            ->where('type', 'payment')
+            ->whereDate('created_at', Carbon::today())
+            ->sum('amount');
+        $monthlyTotal = Transaction::where('from_user_id', $user->id)
+            ->where('type', 'payment')
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->whereYear('created_at', Carbon::now()->year)
+            ->sum('amount');
+
+
+        if (($dailyTotal + $amount) > $dailyLimit) {
+            return response()->json([
+                'code'    => 'DAILY_LIMIT_EXCEEDED',
+                'message' => "You have exceeded your daily payment limit of Tk{$dailyLimit}.",
+            ], 400);
+        }
+
+        if (($monthlyTotal + $amount) > $monthlyLimit) {
+            return response()->json([
+                'code'    => 'MONTHLY_LIMIT_EXCEEDED',
+                'message' => "You have exceeded your monthly payment limit of Tk{$monthlyLimit}.",
+            ], 400);
+        }
+
+        // check cash-out max limit
+        if ($request->amount > $user->transactionLimit->payment_max) {
+            return response()->json([
+                'code'    => 'PAYMENT_MAX_LIMIT',
+                'message' => "You cannot pay more than Tk{$user->transactionLimit->payment_max}.",
+            ], 400);
+        }
+
         try {
             // start database transaction
             DB::beginTransaction();
@@ -342,6 +390,7 @@ class PaymentController extends Controller
 
             // change transaction status
             $transaction->status = 'completed';
+            $transaction->charge_amount = $chargeAmount;
             $transaction->save();
 
             // change payment request status
@@ -356,21 +405,22 @@ class PaymentController extends Controller
                 ->format('Y/m/d h:i:s A');
 
             // merchant confirmation sms
-            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$merchant->wallet->balance}", "Received Payment Tk{$transaction->amount}", $merchant->phone, null, $merchant->name);
+            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} on {$date} TxnID:{$transaction->txn_id}. Your new balance is Tk{$merchant->wallet->balance}", "Received Payment Tk{$transaction->amount}", $merchant->phone, null, $merchant->name);
 
             // user confirmation sms
-            $this->smsInit("Your payment has been completed to {$merchant->phone} Tk{$transaction->amount} on {$date} TxnID:{$transaction->txn_id}. You new balance is Tk{$user->wallet->balance}", "You have paid Tk{$transaction->amount}", $user->phone, null, $user->name);
+            $this->smsInit("Your payment has been completed to {$merchant->phone} Tk{$transaction->amount} on {$date} TxnID:{$transaction->txn_id}. Your new balance is Tk{$user->wallet->balance}", "You have paid Tk{$transaction->amount}", $user->phone, null, $user->name);
 
             return response()->json([
                 'code'    => "PAYMENT_COMPLETED",
                 'message' => 'Thanks! Your payment has been completed',
+                'callback_url' => $payment->success_url
             ], 200);
         } catch (\Throwable $th) {
             DB::rollBack();
             return response()->json([
                 'code'    => "PAYMENT_FAILED",
                 'message' => 'Your payment has been failed!',
-                'errors'  => $th->getMessage(),
+                'callback_url' => $payment->cancel_url
             ], 400);
         }
     }
