@@ -19,8 +19,16 @@ class PaymentRequest extends Model
         'expire_at',
         'cancel_url',
         'success_url',
+        'failed_url',
+        'is_deleted',
         'merchant_app_id',
     ];
+
+
+    /**
+     * Hidden the price id
+     */
+    protected $hidden = ['id'];
 
     /**
      * The merchant that owns the payment request.

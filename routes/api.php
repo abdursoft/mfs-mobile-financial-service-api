@@ -2,16 +2,18 @@
 
 use App\Http\Controllers\Admin\SmsController;
 use App\Http\Controllers\Api\Admin\AdminController;
-use App\Http\Controllers\Api\AgentController;
-use App\Http\Controllers\Api\KycController;
-use App\Http\Controllers\Api\MerchantController;
-use App\Http\Controllers\Api\MerchantCredentialController;
-use App\Http\Controllers\Api\NidController;
-use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\TransactionController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\WalletController;
-use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Agent\AgentController;
+use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Docs\KycController;
+use App\Http\Controllers\Api\V1\Docs\NidController;
+use App\Http\Controllers\Api\V1\Merchant\MerchantController;
+use App\Http\Controllers\Api\V1\Merchant\MerchantCredentialController;
+use App\Http\Controllers\Api\V1\Payment\PaymentController;
+use App\Http\Controllers\Api\V1\Price\PriceController;
+use App\Http\Controllers\Api\V1\Product\ProductController;
+use App\Http\Controllers\Api\V1\Transaction\TransactionController;
+use App\Http\Controllers\Api\V1\User\UserController;
+use App\Http\Controllers\Api\V1\User\WalletController;
 use App\Http\Middleware\PaymentMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -87,14 +89,46 @@ Route::prefix('v1')->group(function () {
         Route::get('dashboard', [MerchantController::class, 'dashboard']);
     });
 
+    // merchant pgw routes
+    Route::middleware('auth.pgw')->group(function(){
+        // Price routes
+        Route::prefix('price')->group(function(){
+            Route::post('create', [PriceController::class, 'store'])->name('price.create');
+            Route::get('list/{id?}', [PriceController::class, 'show'])->name('price.list');
+            Route::post('update/{id}', [PriceController::class, 'update'])->name('price.update');
+            Route::delete('delete/{id}', [PriceController::class, 'destroy'])->name('price.delete');
+        });
+
+        // Product routes
+        Route::prefix('product')->group(function(){
+            Route::post('create', [ProductController::class, 'store'])->name('product.create');
+            Route::get('list/{id?}', [ProductController::class, 'show'])->name('product.list');
+            Route::post('update/{id}', [ProductController::class, 'update'])->name('product.update');
+            Route::delete('delete/{id}', [ProductController::class, 'destroy'])->name('product.delete');
+        });
+    });
+
+    // token routes
+    Route::prefix('token')->group(function(){
+        Route::post('grant', [PaymentController::class, 'createToken']);
+        Route::post('refresh', [PaymentController::class, 'createToken']);
+    });
+
+    // procedural routes
+    Route::prefix('process')->group(function(){
+        Route::post('otp/verify/{id}', [PaymentController::class, 'checkOTP']);
+        Route::post('otp/new/{id}', [PaymentController::class, 'resendOTP']);
+        Route::post('pin/verify/{id}', [PaymentController::class, 'checkPIN']);
+    });
+
     // payment routes
     Route::prefix('payment')->group(function () {
-        Route::post('token', [PaymentController::class, 'createToken']);
         Route::post('create', [PaymentController::class, 'createPayment'])->middleware(PaymentMiddleware::class);
-        Route::get('merchant/{id}', [PaymentController::class, 'merchantByPayment']);
         Route::post('proceed/{id}', [PaymentController::class, 'proceedPayment']);
-        Route::post('otp/verify/{id}', [PaymentController::class, 'checkOTP']);
-        Route::post('pin/verify/{id}', [PaymentController::class, 'checkPIN']);
+        Route::get('fetch/{id?}', [PaymentController::class, 'getMerchantPayment'])->middleware(PaymentMiddleware::class);
+
+        // payment details
+        Route::get('merchant/{id}', [PaymentController::class, 'merchantByPayment']);
     });
 
     // Sms routes

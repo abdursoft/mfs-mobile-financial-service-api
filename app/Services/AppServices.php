@@ -8,6 +8,13 @@ if(!function_exists('authUser')){
     }
 }
 
+// check Auth
+if(!function_exists('merchantApp')){
+    function merchantApp($request){
+        return $request->attributes->get('merchantApp');
+    }
+}
+
 // unique random 32 charaters
 if (!function_exists('generate_unique_token')) {
     function generate_unique_token($modelClass, $column = 'token', $type, $length = 32) {
@@ -33,7 +40,7 @@ if (!function_exists('txnID')) {
 // generate random otp
 if(!function_exists('otp')){
     function otp(){
-        return rand(1000,999999);
+        return rand(100000,999999);
     }
 }
 
@@ -48,5 +55,27 @@ if(!function_exists('maskPhone')){
 if(!function_exists('format_phone')){
     function format_phone($phone){
         return substr($phone,0,5).'-'.substr($phone,5);
+    }
+}
+
+
+// unique random 32 charaters
+if (!function_exists('actID')) {
+    function actID($modelClass, $column = 'act_id', $length = 32) {
+        do {
+            $token = \Illuminate\Support\Str::random($length);
+        } while ($modelClass::where($column, $token)->exists());
+        $kind = 'act_';
+        return $kind.$token;
+    }
+}
+
+// unique random 32 charaters
+if (!function_exists('uniqueToken')) {
+    function uniqueToken($modelClass, $column ,$prefix, $length = 32) {
+        do {
+            $token = \Illuminate\Support\Str::random($length);
+        } while ($modelClass::where($column, $token)->exists());
+        return $prefix.$token;
     }
 }

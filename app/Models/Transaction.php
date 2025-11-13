@@ -15,6 +15,7 @@ class Transaction extends Model
         'status',
         'txn_id',
         'otp',
+        'otp_hit',
         'reference',
         'charge_amount',
         'interest',
@@ -22,6 +23,7 @@ class Transaction extends Model
 
     protected $hidden = [
         'otp',
+        'id'
     ];
 
     protected $casts = [

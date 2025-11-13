@@ -19,6 +19,12 @@ class MerchantCredential extends Model
         'user_id',
     ];
 
+
+    /**
+     * Hidden the price id
+     */
+    protected $hidden = ['id'];
+
     protected $casts = [
         'webhook_events' => 'array',
     ];

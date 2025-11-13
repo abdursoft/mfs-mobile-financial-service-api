@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('webhooks', function (Blueprint $table) {
+            $table->id();
+            $table->string('webhook')->unique();
+            $table->string('webhook_key')->unique();
+            $table->string('webhook_sec')->unique();
+            $table->string('webhook_url')->nullable();
+            $table->json('webhook_events')->nullable();
+            $table->enum('webhook_type',['production','development'])->nullable();
+            $table->foreignId('merchant_app_id')->constrained('merchant_credentials')->onDelete('cascade');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('webhooks');
+    }
+};

@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('merchant_credentials', function (Blueprint $table) {
+        Schema::create('user_revenues', function (Blueprint $table) {
             $table->id();
-            $table->string('secret_key');
-            $table->string('public_key');
-            $table->string('app_name');
-            $table->string('app_logo');
-            $table->enum('app_type',['production','development'])->default('development');
-            $table->enum('status',['active','inactive','suspended'])->default('active');
+            $table->decimal('amount');
+            $table->string('note')->nullable();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
         });
@@ -29,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('merchant_credentials');
+        Schema::dropIfExists('user_revenues');
     }
 };

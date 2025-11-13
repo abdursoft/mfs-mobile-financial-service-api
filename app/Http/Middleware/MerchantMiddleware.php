@@ -13,7 +13,10 @@ class MerchantMiddleware
         $token = $request->bearerToken();
 
         if (!$token) {
-            return response()->json(['error' => 'Token not provided'], 401);
+            return response()->json([
+                'code' => 'INVALID_TOKEN',
+                'message' => 'Authorization token is missing or expired'
+            ], 401);
         }
 
         try {
@@ -31,12 +34,14 @@ class MerchantMiddleware
                     'message' => 'Unauthorized access!'
                 ],401);
             }
+            $request->setUserResolver(fn() => $user);
             $request->attributes->set('auth_user', $user); // set auth_user on request
             return $next($request);
         } catch (\Exception $e) {
             return response()->json([
                 'code' => 'INVALID_TOKEN',
-                'message' => 'Token invalid or expire'
+                'message' => 'Token invalid or expire',
+                'error' => $e->getMessage()
             ], 401);
         }
     }

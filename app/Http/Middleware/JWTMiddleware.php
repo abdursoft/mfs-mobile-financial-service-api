@@ -13,7 +13,10 @@ class JWTMiddleware
         $token = $request->bearerToken();
 
         if (!$token) {
-            return response()->json(['error' => 'Token not provided'], 401);
+            return response()->json([
+                'code' => 'INVALID_TOKEN',
+                'message' => 'Authorization token is missing or expired'
+            ], 401);
         }
 
         try {
@@ -24,7 +27,7 @@ class JWTMiddleware
             if (!$user || $user->api_token !== $token || $user->token_expired_at < now()) {
                 return response()->json(['error' => 'Invalid or expired token'], 401);
             }
-
+            $request->setUserResolver(fn() => $user);
             $request->attributes->set('auth_user', $user); // set auth_user on request
             return $next($request);
         } catch (\Exception $e) {

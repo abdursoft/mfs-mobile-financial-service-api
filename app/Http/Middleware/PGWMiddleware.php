@@ -7,7 +7,7 @@ use App\Models\MerchantCredential;
 use Closure;
 use App\Models\User;
 
-class PaymentMiddleware
+class PGWMiddleware
 {
     public function handle($request, Closure $next)
     {
