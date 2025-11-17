@@ -79,7 +79,7 @@ class ProductController extends Controller
     /**
      * Display a single product.
      */
-    public function show($id)
+    public function show($id=null)
     {
         if($id){
             $product = Product::where('merchant_app_id', $this->merchant->id)->where('product_id',$id)->first();
@@ -98,7 +98,7 @@ class ProductController extends Controller
         return response()->json([
             'code' => 'PRODUCT_RETRIEVED',
             'message' => 'Product successfully retrieved',
-            'price' => $product
+            'product' => $product
         ],200);
     }
 
@@ -125,13 +125,12 @@ class ProductController extends Controller
         ]);
 
         // price validation
-        $price = Price::where('merchant_app_id', $this->merchant->id)->where('price_id',$request->price_id)->exists();
-
-        if(!$price){
-            return response()->json([
-                'code' => 'INVALID_PRICE_ID',
-                'message' => 'Invalid price ID'
-            ],422);
+        if($request->has('price_id')){
+            $validated->after(function ($validator) use ($request) {
+                if (!Price::where('merchant_app_id', $this->merchant->id)->where('id',$request->price_id)->exists()) {
+                    $validator->errors()->add('price_id', 'The selected price id is invalid.');
+                }
+            });
         }
 
         // check validation

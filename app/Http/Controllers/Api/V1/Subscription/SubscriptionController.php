@@ -33,7 +33,7 @@ class SubscriptionController extends Controller
         $subscription = Subscription::create($validated);
 
         $cycle = $subscription->product->price->cycle ?? 'monthly';
-        $nextCharge = match ($cycle) {
+        $nextCharge = match ($cycle) { 
             'daily'     => now()->addDay(),
             'weekly'    => now()->addWeek(),
             'monthly'   => now()->addMonth(),

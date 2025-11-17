@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\Product\ProductController;
 use App\Http\Controllers\Api\V1\Transaction\TransactionController;
 use App\Http\Controllers\Api\V1\User\UserController;
 use App\Http\Controllers\Api\V1\User\WalletController;
+use App\Http\Controllers\Api\V1\Webhook\WebhookController;
 use App\Http\Middleware\PaymentMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -105,6 +106,14 @@ Route::prefix('v1')->group(function () {
             Route::get('list/{id?}', [ProductController::class, 'show'])->name('product.list');
             Route::post('update/{id}', [ProductController::class, 'update'])->name('product.update');
             Route::delete('delete/{id}', [ProductController::class, 'destroy'])->name('product.delete');
+        });
+
+        // webhook routes
+        Route::prefix('webhook')->group(function(){
+            Route::post('create', [WebhookController::class, 'store'])->name('webhook.create');
+            Route::get('list/{id?}', [WebhookController::class, 'show'])->name('webhook.list');
+            Route::post('update/{id}', [WebhookController::class, 'update'])->name('webhook.update');
+            Route::delete('delete/{id}', [WebhookController::class, 'destroy'])->name('webhook.delete');
         });
     });
 

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name',90);
             $table->string('keyword',90);
-            $table->json('attributes',90)->nullable();
+            $table->json('attributes')->nullable();
 
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
