@@ -66,7 +66,7 @@ class User extends Authenticatable
 
     public function transactionCharge()
     {
-        return $this->hasMany(TransactionCharge::class);
+        return $this->hasOne(TransactionCharge::class);
     }
 
     public function transactionLimit()

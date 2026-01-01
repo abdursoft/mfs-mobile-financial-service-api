@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api\V1\Payment;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Essentials\JWTAuth;
+use App\Jobs\MerchantPaymentReceivedJob;
+use App\Jobs\PaymentVerifyOTPJob;
+use App\Jobs\UserPaymentCompleteJob;
 use App\Models\MerchantCredential;
 use App\Models\PaymentRequest;
 use App\Models\Transaction;
 use App\Models\TransactionCharge;
 use App\Models\User;
-use App\Traits\MessageHandler;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +20,6 @@ use Illuminate\Support\Facades\Validator;
 
 class PaymentController extends Controller
 {
-    // message traits
-    use MessageHandler;
 
     // payment init token
     public function createToken(Request $request)
@@ -215,7 +215,7 @@ class PaymentController extends Controller
             ]);
 
             // send OTP
-            $this->smsInit("Payment verify OTP {$code}. Don't share your PIN and OTP with anyone.", 'Payment OTP', $user->phone, null, $user->name);
+            dispatch(new PaymentVerifyOTPJob($user, $code))->onQueue('high');
 
             return response()->json([
                 'code'    => 'Payment created successful',
@@ -271,7 +271,7 @@ class PaymentController extends Controller
             $transaction->save();
 
             // send OTP
-            $this->smsInit("Payment verify OTP {$code}. Don't share your PIN and OTP with anyone.", 'Payment OTP', $user->phone, null, $user->name);
+            dispatch(new PaymentVerifyOTPJob($user, $code))->onQueue('high');
 
             return response()->json([
                 'code'    => 'OTP sent successfully',
@@ -458,15 +458,11 @@ class PaymentController extends Controller
             // committed database
             DB::commit();
 
-            $date = Carbon::parse($transaction->created_at, 'UTC') // assume stored as UTC
-                ->setTimezone('Asia/Dhaka')
-                ->format('Y/m/d h:i:s A');
-
             // merchant confirmation sms
-            $this->smsInit("You have received a payment Tk{$transaction->amount} from {$user->phone} on {$date} TxnID:{$transaction->txn_id}. Your new balance is Tk{$merchant->wallet->balance}", "Received Payment Tk{$transaction->amount}", $merchant->phone, null, $merchant->name);
+            dispatch(new MerchantPaymentReceivedJob($user, $merchant, $transaction))->onQueue('medium');
 
             // user confirmation sms
-            $this->smsInit("Your payment has been completed to {$merchant->phone} Tk{$transaction->amount} on {$date} TxnID:{$transaction->txn_id}. Your new balance is Tk{$user->wallet->balance}", "You have paid Tk{$transaction->amount}", $user->phone, null, $user->name);
+            dispatch(new UserPaymentCompleteJob($user, $merchant, $transaction))->onQueue('medium');
 
             return response()->json([
                 'code'    => "PAYMENT_COMPLETED",

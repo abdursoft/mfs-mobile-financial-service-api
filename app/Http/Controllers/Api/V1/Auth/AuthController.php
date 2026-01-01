@@ -3,10 +3,11 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Essentials\JWTAuth;
+use App\Jobs\SignupOTPJob;
+use App\Jobs\SignupVerifyJob;
 use App\Models\User;
 use App\Models\UserSession;
 use App\Models\Wallet;
-use App\Traits\MessageHandler;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    use MessageHandler;
     /**
      * Store a newly created resource in storage.
      */
@@ -38,12 +38,13 @@ class AuthController extends Controller
 
         $exists = User::where('phone', $request->input('phone'))->first();
         if ($exists && ! $exists->phone_verified_at) {
-            $token       = rand(1000, 9999);
-            $exists->otp = $token;
+            $otpToken       = rand(1000, 9999);
+            $exists->otp = $otpToken;
             $exists->save();
 
-            $text = "ABPay signup OTP: $token will expire in 3 minutes. Please don't share your OTP and PIN with anyone";
-            $this->smsInit($text, 'Sign up OTP', $request->phone, null, $request->input('name'));
+            // send signout otp through queue and jobs
+            dispatch(new SignupOTPJob($otpToken, (object) $request->all()))->onQueue('high');
+
             $token       = JWTAuth::createToken('otpToken', 0.05, null, $request->input('phone'));
             $resendToken = JWTAuth::createToken('resendToken', 1, null, $request->input('phone'));
 
@@ -64,7 +65,7 @@ class AuthController extends Controller
 
         try {
             DB::beginTransaction();
-            $token = rand(1000, 9999);
+            $otpToken = rand(1000, 9999);
             if (! empty($request->role) && $request->role == 'admin') {
                 $count = User::where('role', 'admin')->count();
                 if ($count >= 1) {
@@ -77,14 +78,16 @@ class AuthController extends Controller
             User::create(
                 [
                     "name"     => $request->input('name'),
-                    "otp"      => $token,
+                    "otp"      => $otpToken,
                     "role"     => $request->role ?? 'user',
                     "phone"    => $request->phone,
                     "password" => Hash::make($request->input('password')),
                 ]
             );
-            $text = "ABPay signup OTP: $token will expire in 3 minutes. Please don't share your OTP and PIN with anyone";
-            $this->smsInit($text, 'Sign up OTP', $request->phone, null, $request->input('name'));
+
+            // send signout otp through queue and jobs
+            dispatch(new SignupOTPJob($otpToken, (object) $request->all()))->onQueue('high');
+
             $token       = JWTAuth::createToken('otpToken', 0.05, null, $request->input('phone'));
             $resendToken = JWTAuth::createToken('resendToken', 1, null, $request->input('phone'));
 
@@ -209,7 +212,10 @@ class AuthController extends Controller
                     'otp_hit'           => 0,
                     'phone_verified_at' => now(),
                 ]);
-                $this->smsInit("{$user->name} your account has been verified, Please set your wallet PIN & update your KYC", 'Account Verified', $user->phone, $user->email, $user->name);
+
+                // send verification email by queue and job
+                dispatch(new SignupVerifyJob((object) $user))->onQueue('high');
+
                 $token = JWTAuth::createToken('walletPin', 8470, null, $user->phone);
                 return response()->json(
                     [
@@ -257,14 +263,15 @@ class AuthController extends Controller
             $otpExpired = Carbon::parse($user->updated_at)->addMinutes(3)->isPast();
 
             if ((int) $user->otp_hit < 3 && $otpExpired) {
-                $token         = rand(1000, 9999);
-                $user->otp     = $token;
+                $otpToken         = rand(1000, 9999);
+                $user->otp     = $otpToken;
                 $user->otp_hit = $user->otp_hit + 1;
                 $user->save();
 
-                $text    = "ABPay signup OTP: $token will expire in 3 minutes. Please don't share your OTP and PIN with anyone";
+                // send signout otp through queue and jobs
+                dispatch(new SignupOTPJob($otpToken, (object) $user))->onQueue('high');
+
                 $jwToken = JWTAuth::createToken('otpToken', 0.05, null, $request->input('phone'));
-                $this->smsInit($text, 'Sign up OTP', $user->phone, $user->email, $user->name);
 
                 return response()->json([
                     'code'     => 'OTP_SENT',
@@ -390,6 +397,8 @@ class AuthController extends Controller
                     'phone' => $user->phone,
                     'role'  => $user->role,
                     'image' => $user->image,
+                    'charge'=> $user->transactionCharge,
+                    'limit' => $user->transactionLimit,
                     'balance' => $user->wallet ? $user->wallet->balance : 0,
                     'kyc_status' => $user->kyc ? $user->kyc->status : 'not_verified',
                     'document' => $user->kyc ? maskPhone($user->kyc->document_number) : null,

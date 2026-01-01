@@ -2,6 +2,8 @@
 namespace App\Http\Controllers\Api\V1\Agent;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\AgentCashinJob;
+use App\Jobs\UserCashinJob;
 use App\Models\Transaction;
 use App\Models\TransactionCharge;
 use App\Models\User;
@@ -137,14 +139,12 @@ class AgentController extends Controller
                 'txn_id'       => uniqid(),
             ]);
             DB::commit();
-            $date = Carbon::parse($transaction->created_at, 'UTC') // assume stored as UTC
-                ->setTimezone('Asia/Dhaka')
-                ->format('Y/m/d h:i:s A');
+
             // user message
-            $this->smsInit("You have successfully cashed in Tk{$request->amount} from {$agent->phone} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Cash-in {$request->amount}", $user->phone, null, $user->name);
+            dispatch(new UserCashinJob($user,$agent,(object) $request->all(), $transaction));
 
             // agent message
-            $this->smsInit("Cashed in charge Tk{$request->amount} to {$user->phone} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$agent->wallet->balance}", "Cash-in {$request->amount}", $agent->phone, null, $agent->name);
+            dispatch(new AgentCashinJob($user,$agent,(object) $request->all(),$transaction));
 
             return response()->json([
                 'code'    => 'CASH_IN',

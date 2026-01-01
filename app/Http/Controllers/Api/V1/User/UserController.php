@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Api\V1\User;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Essentials\JWTAuth;
+use App\Jobs\PinResetOTPJob;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Traits\MessageHandler;
@@ -79,7 +80,7 @@ class UserController extends Controller
         $user->save();
 
         // send otp in user phone
-        $this->smsInit("Your PIN reset OTP {$code}. Please don't share your OTP and PIN with anyone", 'PIN reset', $user->phone, null, $user->name);
+        dispatch(new PinResetOTPJob($code, $user))->onQueue('high');
 
         // generate reset token
         $token = JWTAuth::paymentToken('resetToken', 0.17, $user->id);
@@ -131,7 +132,7 @@ class UserController extends Controller
         $user->save();
 
         // send otp in user phone
-        $this->smsInit("Your PIN reset OTP {$code}. Please don't share your OTP and PIN with anyone", 'PIN reset', $user->phone, null, $user->name);
+        dispatch(new PinResetOTPJob($code, $user))->onQueue('high');
 
         // generate reset token
         $token = JWTAuth::paymentToken('resetToken', 0.17, $user->id);

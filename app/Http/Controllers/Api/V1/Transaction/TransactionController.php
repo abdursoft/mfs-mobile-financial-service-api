@@ -1,8 +1,9 @@
 <?php
-
 namespace App\Http\Controllers\Api\V1\Transaction;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\MerchantPaymentStatusJob;
+use App\Jobs\UserPaymentStatusJob;
 use App\Models\Transaction;
 use App\Models\TransactionCharge;
 use App\Models\User;
@@ -43,7 +44,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'SAME_USER',
                 'message' => 'Couldn\'t process the transaction against same ID',
-            ], 400);
+            ], 422);
         }
 
         // check user role
@@ -51,7 +52,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'ROLE_RESTRICTED',
                 'message' => "You couldn't send your money to any {$toUser->role}.",
-            ], 400);
+            ], 422);
         }
 
         // check user kyc
@@ -59,7 +60,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'KYC_NOT_VERIFIED',
                 'message' => 'Please update your KYC to make your transaction',
-            ], 400);
+            ], 422);
         }
 
         // check same amount transfer under 2 minutes
@@ -73,20 +74,20 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'FREQUENT_TRANSACTION',
                 'message' => 'You cannot send the same amount to the same user within 2 minutes.',
-            ], 400);
+            ], 422);
         }
 
-        $charge = TransactionCharge::where('user_id',$fromUser->id)->first();
+        $charge = TransactionCharge::where('user_id', $fromUser->id)->first();
 
         // check amount charge
-        $amount = $validated['amount'];
+        $amount       = $validated['amount'];
         $chargeAmount = ($amount * $charge->cash_out_percentage / 100);
-        $payable = $amount + $chargeAmount;
+        $payable      = $amount + $chargeAmount;
 
         // check daily and monthly limits
-        $dailyLimit = $fromUser->transactionLimit->daily_cash_out_limit;
+        $dailyLimit   = $fromUser->transactionLimit->daily_cash_out_limit;
         $monthlyLimit = $fromUser->transactionLimit->monthly_cash_out_limit;
-        $dailyTotal = Transaction::where('from_user_id', $fromUser->id)
+        $dailyTotal   = Transaction::where('from_user_id', $fromUser->id)
             ->where('type', 'transfer')
             ->whereDate('created_at', Carbon::today())
             ->sum('amount');
@@ -96,19 +97,18 @@ class TransactionController extends Controller
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('amount');
 
-
         if (($dailyTotal + $payable) > $dailyLimit) {
             return response()->json([
                 'code'    => 'DAILY_LIMIT_EXCEEDED',
                 'message' => "You have exceeded your daily send money limit of Tk{$dailyLimit}.",
-            ], 400);
+            ], 422);
         }
 
         if (($monthlyTotal + $payable) > $monthlyLimit) {
             return response()->json([
                 'code'    => 'MONTHLY_LIMIT_EXCEEDED',
                 'message' => "You have exceeded your monthly send money limit of Tk{$monthlyLimit}.",
-            ], 400);
+            ], 422);
         }
 
         // check cash-out max limit
@@ -116,7 +116,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'TRANSFER_MAX_LIMIT',
                 'message' => "You cannot send money more than Tk{$fromUser->transactionLimit->cash_out_max}.",
-            ], 400);
+            ], 422);
         }
 
         // check balance
@@ -134,7 +134,7 @@ class TransactionController extends Controller
             $toWallet   = $toUser->wallet;
 
             if ($fromWallet->balance < $validated['amount']) {
-                return response()->json(['message' => 'Insufficient balance'], 400);
+                return response()->json(['message' => 'Insufficient balance'], 422);
             }
 
             // Debit sender
@@ -164,9 +164,9 @@ class TransactionController extends Controller
                 ->format('Y/m/d h:i:s A');
 
             // masking phone numbers for privacy
-            $userMask = maskPhone($toUser->phone);
+            $userMask   = maskPhone($toUser->phone);
             $senderMask = maskPhone($fromUser->phone);
-            $sendAmount = number_format($request->amount,2);
+            $sendAmount = number_format($request->amount, 2);
 
             // Notify users via SMS
             $this->smsInit("You have received Tk{$sendAmount} from {$senderMask} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$toUser->wallet->balance}. Thanks for using {$app}.", "Received money {$sendAmount} ", $toUser->phone, null, $toUser->name);
@@ -196,11 +196,10 @@ class TransactionController extends Controller
             'pin'        => 'required|digits:4',
         ]);
 
-
         $agent = User::where('phone', $validated['user_phone'])->first();
         $user  = authUser($request);
 
-        $charge = TransactionCharge::where('user_id',$user->id)->first();
+        $charge = TransactionCharge::where('user_id', $user->id)->first();
 
         // check pin
         if (! Hash::check($request->pin, $user->pin)) {
@@ -215,18 +214,18 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'KYC_NOT_VERIFIED',
                 'message' => 'Please update your KYC to make your transaction',
-            ], 400);
+            ], 422);
         }
 
         // check amount charge
-        $amount = $validated['amount'];
+        $amount       = $validated['amount'];
         $chargeAmount = ($amount * $charge->cash_out_percentage / 100);
         $request->merge(['amount' => $amount + $chargeAmount]);
 
         // check daily and monthly limits
-        $dailyLimit = $user->transactionLimit->daily_cash_out_limit;
+        $dailyLimit   = $user->transactionLimit->daily_cash_out_limit;
         $monthlyLimit = $user->transactionLimit->monthly_cash_out_limit;
-        $dailyTotal = Transaction::where('from_user_id', $user->id)
+        $dailyTotal   = Transaction::where('from_user_id', $user->id)
             ->where('type', 'cash_out')
             ->whereDate('created_at', Carbon::today())
             ->sum('amount');
@@ -236,19 +235,18 @@ class TransactionController extends Controller
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('amount');
 
-
         if (($dailyTotal + $request->amount) > $dailyLimit) {
             return response()->json([
                 'code'    => 'DAILY_LIMIT_EXCEEDED',
                 'message' => "You have exceeded your daily cash-out limit of Tk{$dailyLimit}.",
-            ], 400);
+            ], 422);
         }
 
         if (($monthlyTotal + $request->amount) > $monthlyLimit) {
             return response()->json([
                 'code'    => 'MONTHLY_LIMIT_EXCEEDED',
                 'message' => "You have exceeded your monthly cash-out limit of Tk{$monthlyLimit}.",
-            ], 400);
+            ], 422);
         }
 
         // check cash-out max limit
@@ -256,7 +254,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'CASH_OUT_MAX_LIMIT',
                 'message' => "You cannot cash out more than Tk{$user->transactionLimit->cash_out_max}.",
-            ], 400);
+            ], 422);
         }
 
         // check balance
@@ -274,7 +272,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'SAME_USER',
                 'message' => 'Couldn\'t process the transaction against same user',
-            ], 400);
+            ], 422);
         }
 
         // check same amount transfer under 2 minutes
@@ -288,7 +286,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'FREQUENT_TRANSACTION',
                 'message' => 'You cannot cash out the same amount to the same agent within 2 minutes.',
-            ], 400);
+            ], 422);
         }
 
         // check user role
@@ -296,7 +294,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'ROLE_RESTRICTED',
                 'message' => "You couldn't cash out to any {$toUser->role}.",
-            ], 400);
+            ], 422);
         }
 
         // agent interest
@@ -306,7 +304,7 @@ class TransactionController extends Controller
             DB::beginTransaction();
 
             // added money in user wallet
-            $agent->wallet->balance += ( $request->amount - $interest);
+            $agent->wallet->balance += ($request->amount - $interest);
             $agent->wallet->save();
 
             // sub-struct money from agent wallet
@@ -315,14 +313,14 @@ class TransactionController extends Controller
 
             // Log transaction, track agent
             $transaction = Transaction::create([
-                'from_user_id' => $user->id, // agent performed cash-in
-                'to_user_id'   => $agent->id,
-                'amount'       => $validated['amount'],
-                'type'         => 'cash_out',
-                'status'       => 'completed',
-                'txn_id'       => uniqid(),
+                'from_user_id'  => $user->id, // agent performed cash-in
+                'to_user_id'    => $agent->id,
+                'amount'        => $validated['amount'],
+                'type'          => 'cash_out',
+                'status'        => 'completed',
+                'txn_id'        => uniqid(),
                 'charge_amount' => $chargeAmount,
-                'interest'     => $interest,
+                'interest'      => $interest,
             ]);
             DB::commit();
 
@@ -331,13 +329,12 @@ class TransactionController extends Controller
                 ->format('Y/m/d h:i:s A');
 
             // masking phone numbers for privacy
-            $userMask = maskPhone($toUser->phone);
+            $userMask  = maskPhone($toUser->phone);
             $agentMask = maskPhone($agent->phone);
 
             // make number formatting
-            $amount = number_format($validated['amount'], 2);
+            $amount       = number_format($validated['amount'], 2);
             $chargeAmount = number_format($chargeAmount, 2);
-
 
             // user message
             $this->smsInit("You have successfully cash out Tk{$amount} to {$agentMask} Fee Tk{$chargeAmount} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Cash-out {$amount} ", $user->phone, null, $user->name);
@@ -366,11 +363,10 @@ class TransactionController extends Controller
             'pin'        => 'required|digits:4',
         ]);
 
-
         $merchant = User::where('phone', $validated['user_phone'])->first();
-        $user  = authUser($request);
+        $user     = authUser($request);
 
-        $charge = TransactionCharge::where('user_id',$user->id)->first();
+        $charge = TransactionCharge::where('user_id', $user->id)->first();
 
         // check pin
         if (! Hash::check($request->pin, $user->pin)) {
@@ -385,18 +381,18 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'KYC_NOT_VERIFIED',
                 'message' => 'Please update your KYC to make your transaction',
-            ], 400);
+            ], 422);
         }
 
         // check amount charge
-        $amount = $validated['amount'];
+        $amount       = $validated['amount'];
         $chargeAmount = ($amount * $charge->payment_percentage / 100);
         $request->merge(['amount' => $amount + $chargeAmount]);
 
         // check daily and monthly limits
-        $dailyLimit = $user->transactionLimit->daily_payment_limit;
+        $dailyLimit   = $user->transactionLimit->daily_payment_limit;
         $monthlyLimit = $user->transactionLimit->monthly_payment_limit;
-        $dailyTotal = Transaction::where('from_user_id', $user->id)
+        $dailyTotal   = Transaction::where('from_user_id', $user->id)
             ->where('type', 'payment')
             ->whereDate('created_at', Carbon::today())
             ->sum('amount');
@@ -406,19 +402,18 @@ class TransactionController extends Controller
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('amount');
 
-
         if (($dailyTotal + $request->amount) > $dailyLimit) {
             return response()->json([
                 'code'    => 'DAILY_LIMIT_EXCEEDED',
                 'message' => "You have exceeded your daily payment limit of Tk{$dailyLimit}.",
-            ], 400);
+            ], 422);
         }
 
         if (($monthlyTotal + $request->amount) > $monthlyLimit) {
             return response()->json([
                 'code'    => 'MONTHLY_LIMIT_EXCEEDED',
                 'message' => "You have exceeded your monthly payment limit of Tk{$monthlyLimit}.",
-            ], 400);
+            ], 422);
         }
 
         // check payment max limit
@@ -426,7 +421,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'PAYMENT_MAX_LIMIT',
                 'message' => "You cannot payment more than Tk{$user->transactionLimit->payment_max}.",
-            ], 400);
+            ], 422);
         }
 
         // check balance
@@ -444,7 +439,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'SAME_USER',
                 'message' => 'Couldn\'t process the transaction against same user',
-            ], 400);
+            ], 422);
         }
 
         // check same amount transfer under 2 minutes
@@ -458,7 +453,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'FREQUENT_TRANSACTION',
                 'message' => 'You cannot payment the same amount to the same agent within 2 minutes.',
-            ], 400);
+            ], 422);
         }
 
         // check user role
@@ -466,7 +461,7 @@ class TransactionController extends Controller
             return response()->json([
                 'code'    => 'ROLE_RESTRICTED',
                 'message' => "You couldn't payment to any {$toUser->role}.",
-            ], 400);
+            ], 422);
         }
 
         try {
@@ -482,13 +477,13 @@ class TransactionController extends Controller
 
             // Log transaction, track agent
             $transaction = Transaction::create([
-                'from_user_id' => $user->id,
-                'to_user_id'   => $merchant->id,
-                'amount'       => $validated['amount'],
-                'type'         => 'payment',
-                'status'       => 'completed',
-                'txn_id'       => uniqid(),
-                'reference'   => $request->reference ?? '',
+                'from_user_id'  => $user->id,
+                'to_user_id'    => $merchant->id,
+                'amount'        => $validated['amount'],
+                'type'          => 'payment',
+                'status'        => 'completed',
+                'txn_id'        => uniqid(),
+                'reference'     => $request->reference ?? '',
                 'charge_amount' => $chargeAmount,
             ]);
             DB::commit();
@@ -498,21 +493,20 @@ class TransactionController extends Controller
                 ->format('Y/m/d h:i:s A');
 
             // masking phone numbers for privacy
-            $userMask = maskPhone($toUser->phone);
+            $userMask  = maskPhone($toUser->phone);
             $agentMask = maskPhone($merchant->phone);
 
             $ref = $request->reference ?? '';
 
             // make number formatting
-            $amount = number_format($validated['amount'], 2);
+            $amount       = number_format($validated['amount'], 2);
             $chargeAmount = number_format($chargeAmount, 2);
 
-
             // user message
-            $this->smsInit("You have paid Tk{$amount} to {$agentMask} Fee Tk{$chargeAmount} Ref:{$ref} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$user->wallet->balance}", "Paid {$amount} ", $user->phone, null, $user->name);
+            dispatch(new UserPaymentStatusJob($amount, $chargeAmount, $ref, $transaction, $user, $merchant));
 
             // merchant message
-            $this->smsInit("Payment received Tk{$amount} from {$userMask} successful Ref:{$ref} on {$date} TxID:{$transaction->txn_id} Your new balance is Tk{$merchant->wallet->balance}", "Received payment {$amount} ", $merchant->phone, null, $merchant->name);
+            dispatch(new MerchantPaymentStatusJob($amount, $chargeAmount, $ref, $transaction, $user, $merchant));
 
             return response()->json([
                 'code'    => 'PAYMENT',
@@ -592,12 +586,11 @@ class TransactionController extends Controller
                 },
                 'toUser'   => function ($to) {
                     $to->select('id', 'name', 'phone', 'image', 'role');
-                }
+                },
             ])
             ->latest()
             ->limit(10)
             ->get();
-
 
         $transfer = Transaction::where('from_user_id', $user->id)
             ->whereMonth('created_at', Carbon::now()->month)
@@ -609,7 +602,7 @@ class TransactionController extends Controller
             ->with([
                 'toUser' => function ($to) {
                     $to->select('id', 'name', 'phone', 'image', 'role');
-                }
+                },
             ])
             ->get();
 
@@ -620,14 +613,14 @@ class TransactionController extends Controller
             'transactions'      => $transaction,
             'balance'           => $user->wallet->balance,
             'month'             => Carbon::now()->format('F Y'),
-            'cash_in'          => $cashIn,
-            'cash_out'         => $cashOut,
-            'payment'          => $payment,
-            'transfer'         => $transfer,
-            'agent_cash_in'    => $agentCashIn,
-            'agent_cash_out'   => $agentCashOut,
+            'cash_in'           => $cashIn,
+            'cash_out'          => $cashOut,
+            'payment'           => $payment,
+            'transfer'          => $transfer,
+            'agent_cash_in'     => $agentCashIn,
+            'agent_cash_out'    => $agentCashOut,
             'merchant_cash_out' => $merchantCashOut,
-            'merchant_payment' => $merchantPayment,
+            'merchant_payment'  => $merchantPayment,
         ]);
     }
 }
