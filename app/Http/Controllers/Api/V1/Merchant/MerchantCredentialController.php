@@ -45,13 +45,12 @@ class MerchantCredentialController extends Controller
             $validated['user_id']     = $user->id;
             $validated['secret_key']  = "sk" . generate_unique_token(\App\Models\MerchantCredential::class, 'secret_key', $request->app_type);
             $validated['public_key']  = "pk" . generate_unique_token(\App\Models\MerchantCredential::class, 'public_key', $request->app_type);
-            $validated['webhook_key'] = "whk" . generate_unique_token(\App\Models\MerchantCredential::class, 'webhook_key', $request->app_type);
 
             $credential = MerchantCredential::create($validated);
 
             return response()->json([
                 'code'    => 'MERCHANT_APP_CREATED',
-                'message' => "Merchant app ($request->app_name) created successful.",
+                'message' => "Merchant app ($request->app_name) created successfully.",
                 'data'    => $credential,
             ], 201);
         } catch (\Throwable $th) {
@@ -93,7 +92,7 @@ class MerchantCredentialController extends Controller
                 'code'    => 'MERCHANT_APP_RETRIEVED',
                 'message' => "Merchant app retrieved successful.",
                 'data'    => $credential,
-            ], 201);
+            ], 200);
     }
 
     /**
@@ -107,11 +106,6 @@ class MerchantCredentialController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'secret_key'     => 'sometimes|required|string',
-            'public_key'     => 'sometimes|required|string',
-            'webhook_key'    => 'sometimes|required|string',
-            'webhook_url'    => 'sometimes|required|url',
-            'webhook_events' => 'sometimes|required|array',
             'app_name'       => 'sometimes|required|string',
             'app_logo'       => 'sometimes|required|string',
             'app_type'       => 'sometimes|required|in:production,development',

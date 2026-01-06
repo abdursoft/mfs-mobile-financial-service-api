@@ -9,9 +9,6 @@ class MerchantCredential extends Model
     protected $fillable = [
         'secret_key',
         'public_key',
-        'webhook_key',
-        'webhook_url',
-        'webhook_events',
         'app_name',
         'app_logo',
         'app_type',
@@ -32,5 +29,12 @@ class MerchantCredential extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Add relation with webhook table
+     */
+    public function webhook(){
+        return $this->hasOne(Webhook::class, 'merchant_app_id');
     }
 }

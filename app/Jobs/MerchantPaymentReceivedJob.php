@@ -34,6 +34,6 @@ class MerchantPaymentReceivedJob implements ShouldQueue
                 ->setTimezone('Asia/Dhaka')
                 ->format('Y/m/d h:i:s A');
 
-        $this->smsInit("You have received a payment Tk{$this->transaction->amount} from {$this->user->phone} on {$date} TxnID:{$this->transaction->txn_id}. Your new balance is Tk{$this->merchant->wallet->balance}", "Received Payment Tk{$this->transaction->amount}", $this->merchant->phone, null, $this->merchant->name);
+        $this->smsInit("You have received a payment Tk{$this->transaction->amount} from {$this->user->phone} fee:{$this->transaction->charge_amount} on {$date} TxnID:{$this->transaction->txn_id}. Your new balance is Tk{$this->merchant->wallet->balance}", "Received Payment Tk{$this->transaction->amount}", $this->merchant->phone, null, $this->merchant->name);
     }
 }

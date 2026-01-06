@@ -189,30 +189,26 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        // check payment id in transaction table
-        if(!empty($payment->transaction)){
-            return response()->json([
-                'code'    => 'PAYMENT_DECLINED',
-                'message' => 'Your payment has been declined for duplicate request ID',
-            ], 422);
-        }
-
         try {
             $merchant = $payment->merchantApp->user;
 
             $code = otp();
 
-            // Log transaction, track agent
-            $transaction = Transaction::create([
-                'from_user_id' => $user->id, // agent performed cash-in
-                'to_user_id'   => $merchant->id,
-                'amount'       => $payment->amount,
-                'payment_id'   => $payment->id,
-                'type'         => 'payment',
-                'status'       => 'pending',
-                'otp'          => $code,
-                'txn_id'       => uniqid(),
-            ]);
+            // check payment id in transaction table
+            $transaction = $payment->transaction;
+            if(empty($transaction)){
+                // Log transaction, track agent
+                $transaction = Transaction::create([
+                    'from_user_id' => $user->id, // agent performed cash-in
+                    'to_user_id'   => $merchant->id,
+                    'amount'       => $payment->amount,
+                    'payment_id'   => $payment->id,
+                    'type'         => 'payment',
+                    'status'       => 'pending',
+                    'otp'          => $code,
+                    'txn_id'       => uniqid(),
+                ]);
+            }
 
             // send OTP
             dispatch(new PaymentVerifyOTPJob($user, $code))->onQueue('high');
@@ -226,6 +222,7 @@ class PaymentController extends Controller
             return response()->json([
                 'code'    => "INVALID_REQUEST",
                 'message' => 'Payment data couldn\'t process',
+                'errors'  => $th->getMessage()
             ], 422);
         }
     }
@@ -237,10 +234,10 @@ class PaymentController extends Controller
     {
 
         // check payment request
-        $transaction = Transaction::where('txn_id', $id)->first();
+        $transaction = Transaction::where('txn_id', $id)->findOrFail();
 
         // check payment request status
-        if ($transaction->status !== 'pending') {
+        if ($transaction && $transaction->status !== 'pending') {
             return response()->json([
                 'code'    => 'PAYMENT_DECLINED',
                 'message' => 'Your payment has been declined',

@@ -23,6 +23,10 @@ class Webhook extends Model
         'webhook_events' => 'array',
     ];
 
+    protected $hidden = [
+        'merchant_app_id',
+    ];
+
     /**
      * Relationship: each webhook belongs to a merchant app
      */

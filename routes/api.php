@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Transaction\TransactionController;
 use App\Http\Controllers\Api\V1\User\UserController;
 use App\Http\Controllers\Api\V1\User\WalletController;
 use App\Http\Controllers\Api\V1\Webhook\WebhookController;
+use App\Http\Controllers\Api\V1\Webhook\WebhookEvent;
 use App\Http\Middleware\PaymentMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -88,6 +89,10 @@ Route::prefix('v1')->group(function () {
         Route::get('get-app', [MerchantCredentialController::class, 'merchantShow']);
         Route::post('delete-app/{id}', [MerchantCredentialController::class, 'destroy']);
         Route::get('dashboard', [MerchantController::class, 'dashboard']);
+
+        // webhook and events
+        Route::get('webhook/events/{id?}', [WebhookEvent::class, 'show'])->name('webhook.events');
+        Route::get('app-name/{appName}', [WebhookController::class, 'getWebhookByMerchantAppName'])->name('webhook.by_app_name');
     });
 
     // merchant pgw routes

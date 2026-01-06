@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Models\MerchantCredential;
 use App\Models\Webhook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\Validator;
 class WebhookController extends Controller
 {
     protected $merchant;
+    protected $user;
 
     /**
      * Initialize the merchant app
@@ -17,6 +19,7 @@ class WebhookController extends Controller
     public function __construct()
     {
         $this->merchant = merchantApp(request());
+        $this->user = authUser(request());
     }
 
     /**
@@ -152,5 +155,25 @@ class WebhookController extends Controller
             'code' => 'WEBHOOK_DELETED',
             'message' => 'Webhook deleted successfully.',
         ]);
+    }
+
+    /**
+     * Get webhook by merchant app name
+     */
+    public function getWebhookByMerchantAppName($appName){
+        $app = MerchantCredential::with('webhook')->where('app_name',$appName)->first();
+        if($app->user_id == $this->user?->id){
+            $webhook = $app->webhook;
+            return response()->json([
+                'code' => 'WEBHOOK_RETRIEVED',
+                'message' => 'Webhook retrieved successfully.',
+                'webhook' => $webhook,
+            ]);
+        }
+
+        return response()->json([
+            'code' => 'WEBHOOK_NOT_FOUND',
+            'message' => 'Webhook is not associated with '.$appName,
+        ],422);
     }
 }

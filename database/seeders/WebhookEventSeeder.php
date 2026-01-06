@@ -15,7 +15,7 @@ class WebhookEventSeeder extends Seeder
                 'children' => [
                     'payment_intent.created',
                     'payment_intent.succeeded',
-                    'payment_intent.payment_failed',
+                    'payment_intent.failed',
                 ],
             ],
             [
@@ -79,6 +79,7 @@ class WebhookEventSeeder extends Seeder
                     'customer.subscription.created',
                     'customer.subscription.updated',
                     'customer.subscription.deleted',
+                    'customer.subscription.terminated',
                 ],
             ],
 
@@ -90,7 +91,7 @@ class WebhookEventSeeder extends Seeder
                     'payout.paid',
                 ],
             ],
-            
+
             [
                 'hook_name' => 'topup',
                 'children' => [
